@@ -1,0 +1,39 @@
+name: Daily Agile Plunge Check
+
+on:
+  schedule:
+    - cron: "30 16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-rates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run daily alert check
+        env:
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TELEGRAM_ALL_SLOTS_BOT_TOKEN: ${{ secrets.TELEGRAM_ALL_SLOTS_BOT_TOKEN }}
+          TELEGRAM_ALERTS_BOT_TOKEN: ${{ secrets.TELEGRAM_ALERTS_BOT_TOKEN }}
+        run: python -m scripts.telegram_alerts
+
+      - name: Commit updated state, if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state/state_telegram.json
+          git diff --staged --quiet || git commit -m "Update Telegram state [skip ci]"
+          git push
