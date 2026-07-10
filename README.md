@@ -1,4 +1,4 @@
-# Agile Octopus Plunge Alerts
+# Agile Octopus Telegram Notifications
 
 A Python bot that watches [Octopus Energy's Agile](https://octopus.energy/smart/agile/) half-hourly
 electricity tariff and posts alerts to a Telegram group when prices go negative, drop to a
