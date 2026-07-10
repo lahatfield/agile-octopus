@@ -3,7 +3,7 @@
 A Python bot that watches [Octopus Energy's Agile](https://octopus.energy/smart/agile/) half-hourly
 electricity tariff and posts alerts to a Telegram group when prices go negative, drop to a
 cheap/"ok" level, or spike above a configurable threshold. Runs daily via a scheduled
-GitHub Actions workflow — no server to maintain.
+GitHub Actions workflow.
 
 ## How it works
 
@@ -22,20 +22,16 @@ Each day (after Octopus publishes the next day's rates, ~4pm UK time), the bot:
 ## Architecture
 
 ```
-core/octopus.py       Fetch + categorize Octopus Agile rates. No Telegram awareness at
-                       all — this is deliberate, so a future consumer (e.g. triggering a
-                       GPU job or a smart plug during negative-price windows) can reuse
-                       the exact same fetch/filter logic without depending on Telegram.
+core/octopus.py       Fetch + categorize Octopus Agile rates.
 notifiers/telegram.py Formats slots and talks to the Telegram Bot API (sending alerts,
                        reading incoming /setthreshold and /setregion commands).
-scripts/               Entry points — the only files that know about both core and
-                       notifiers, wiring them together:
+scripts/               Entry points:
   telegram_alerts.py    The daily job: reads state, fetches rates, checks for Telegram
                          commands, sends alerts. Run via GitHub Actions.
   setup_region.py        One-time (or one-off update) interactive script that sets your
                           canonical DNO region.
   check_env.py            Reports which required environment variables are set, without
-                           ever printing their actual values — safe to run any time.
+                           printing their actual values.
 tests/                 pytest suite for core/octopus.py, using fake HTTP sessions so
                        tests never hit the real Octopus API.
 ```
@@ -60,12 +56,14 @@ propagate to something more foundational without a deliberate, human, committed 
 
 ### 1. Install dependencies
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\pip.exe install -r requirements-dev.txt
+Requires [uv](https://docs.astral.sh/uv/getting-started/installation/).
+
+```sh
+uv sync --group dev
 ```
 
-(`requirements-dev.txt` includes `requirements.txt` plus `pytest`, for running tests.)
+This creates `.venv` and installs everything pinned in `uv.lock` (runtime deps plus
+`pytest`, for running tests).
 
 ### 2. Create two Telegram bots
 
@@ -81,26 +79,26 @@ field (a negative number for groups).
 
 ### 3. Configure secrets
 
-```powershell
+```sh
 cp .env.example .env
 ```
 Fill in `TELEGRAM_CHAT_ID`, `TELEGRAM_ALL_SLOTS_BOT_TOKEN`, and
 `TELEGRAM_ALERTS_BOT_TOKEN` in `.env`. `REGION` and `THRESHOLD` are optional one-time
 seed defaults (see [Configuration and state](#configuration-and-state) above).
 
-Run `python -m scripts.check_env` any time to confirm which required variables are set,
-without ever printing their actual values.
+Run `uv run python -m scripts.check_env` any time to confirm which required variables
+are set, without ever printing their actual values.
 
 ### 4. Set your region
 
-```powershell
-.\.venv\Scripts\python.exe -m scripts.setup_region
+```sh
+uv run python -m scripts.setup_region
 ```
 
 ### 5. Run it
 
-```powershell
-.\.venv\Scripts\python.exe -m scripts.telegram_alerts
+```sh
+uv run python -m scripts.telegram_alerts
 ```
 
 ## Telegram commands
@@ -117,12 +115,10 @@ always-on server.
 
 ## Running tests
 
-```powershell
-.\.venv\Scripts\python.exe -m pytest
+```sh
+uv run python -m pytest
 ```
 
 ## Deployment
 
-Runs daily via a scheduled GitHub Actions workflow (see `.github/workflows/`) — free,
-no server to maintain. Secrets are stored as encrypted GitHub Actions repo secrets, never
-committed.
+Runs daily via a scheduled GitHub Actions workflow (see `.github/workflows/`).
