@@ -1,10 +1,10 @@
 {
-  "offset": 184767709,
+  "offset": 184767712,
   "chats": {
     "-5360807425": {
       "region": "P",
-      "threshold": 30.0,
-      "mode": "both"
+      "threshold": 26.1,
+      "mode": "alerts"
     }
   }
 }
