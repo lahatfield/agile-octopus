@@ -4,9 +4,6 @@ A Python bot that watches [Octopus Energy's Agile](https://octopus.energy/smart/
 electricity tariff and posts alerts to Telegram when prices go negative, drop to a
 cheap/"ok" level, or spike above a configurable threshold.
 
-Create your own Telegram bot and add it to as many chats as you like. Each chat configures
-its own region, threshold, and which messages it wants independently.
-
 ## How it works
 
 Each day (after Octopus publishes the next day's rates, ~4pm UK time), a scheduled job:
@@ -18,9 +15,64 @@ Each day (after Octopus publishes the next day's rates, ~4pm UK time), a schedul
    (✅ at or below that chat's threshold), or **spike** (❌ above it).
 4. Sends each chat the message type(s) it's configured for (see `/setmode` below).
 
-Separately, a job polls Telegram every few minutes for commands, so config changes and
+A separate job polls Telegram every few minutes for commands, so config changes and
 on-demand requests (`/today`, `/tomorrow`) take effect within a few minutes rather than
 waiting for the next scheduled daily run.
+
+## For Users: Running on GitHub Actions
+
+1. Create your own Telegram bot via [@BotFather](https://t.me/BotFather): `/newbot`. No
+   privacy-mode changes needed.
+
+2. Add the bot to any Telegram chats you want alerts in (group chat or DMs). The bot only
+   ever reacts to slash commands, which Telegram delivers to bots regardless of privacy
+   mode, so leave privacy mode on (the default) and it'll never see ordinary chat messages.
+   This repository uses the bot token as a secret to communicate with the Telegram API.
+
+3. Register your Telegram chat by sending `/start` (or any other valid command, see below).
+
+4. Make your own copy of this repository and upload it to GitHub. 
+
+5. Create another empty and private GitHub repository and obtain a PAT (Personal Access Token) with 
+   read and write permissions.
+
+6. Under Settings/Secrets and variables/Actions, create two repository secrets:
+
+   STATE_REPO_TOKEN: The PAT for the empty repository you just created.
+   
+   TELEGRAM_BOT_TOKEN: The bot token for your Telegram bot.
+
+There are two scheduled GitHub Actions workflows (see `.github/workflows/`):
+
+- `daily-rundown.yml` 
+  Once a day (`30 16 * * *`), sends every registered chat its
+  configured alerts. Read-only against state, so it only needs the default
+  (read-only) `GITHUB_TOKEN` permissions.
+- `poll-commands.yml`
+  Every five minutes, handles all commands and registers new
+  chats. The only workflow that writes `state_telegram.json`, committing and pushing it
+  to the separate state repo using the `STATE_REPO_TOKEN` secret (see
+  [State repo](#state-repo) above).
+
+Note GitHub disables scheduled workflows in a repo after 60 days with no commits (not
+runs). If notifications silently stop, check whether they've been auto-disabled in the
+Actions tab.
+
+## Telegram commands
+
+Sent as a message in any chat the bot is in:
+
+  | Message | Purpose |
+| --- | --- |
+| `/start` | Registers the chat (if new) and replies with this command list. |
+| `/setregion C` | Switch this chat to a different DNO region. |
+| `/setthreshold 25` | Prices at or below 25p/kWh count as "ok"; above that, "spike". |
+| `/setmode all/alerts/both/off` | Which daily messages this chat receives: every slot, only plunge/spike alerts, both, or nothing. |
+| `/today` | Send today's remaining slots right now. |
+| `/tomorrow` | Send tomorrow's slots right now, or a "not published yet" reply if Octopus hasn't published them (before ~4pm UK). |
+
+`/setregion`, `/setthreshold` and `/setmode` take effect within a few minutes (on GitHub Actions, the
+command-polling job runs on a `*/5 * * * *` schedule). `/today` and `/tomorrow` reply on that same poll.
 
 ## Architecture
 
@@ -55,34 +107,21 @@ as a regular dependency (see `pyproject.toml`).
   Example json:
   ```json
   {
-    "offset": 384437557,
-    "chats": {
-      "<chat_id>": {"region": "P", "threshold": 30.0, "mode": "both"}
+  "offset": 184767730,
+  "chats": {
+    "-5360807425": {
+      "region": "P",
+      "threshold": 26.1,
+      "mode": "all"
     }
+  }
   }
   ```
   Only `scripts/poll_commands.py` ever writes this file. This project is intended for a
   handful of your own chats, not as a public multi-tenant service. Every chat_id
   committed here belongs to a chat you administer.
 
-### State repo
-
-To set up the separate state repo:
-
-1. Create an empty private repo (e.g. `agile-octopus-state`).
-2. Generate a fine-grained [personal access token](https://github.com/settings/personal-access-tokens)
-   scoped to *only* that repo, with **Contents: Read and write** permission.
-3. Add it as a secret named `STATE_REPO_TOKEN` on *this* repo (Settings → Secrets and
-   variables → Actions).
-4. Clone the state repo locally, add a `state_telegram.json` (an empty `{"offset": 0,
-   "chats": {}}` is fine to start), and push it.
-5. Update the `repository:` value under "Check out state repo" in both workflow files if
-   your state repo isn't `lahatfield/agile-octopus-state`.
-
-Both workflows check it out into `state-repo/` and point `TELEGRAM_STATE_DIR` at it; only
-`poll-commands.yml` commits and pushes back to it.
-
-## Setup
+## For Developers: Installing and Running Locally
 
 ### 1. Install dependencies
 
@@ -95,17 +134,7 @@ uv sync --group dev
 This creates `.venv` and installs everything pinned in `uv.lock` (runtime deps plus
 `pytest`, for running tests).
 
-### 2. Create a Telegram bot
-
-Via [@BotFather](https://t.me/BotFather): `/newbot`. Add it to any Telegram chats you
-want alerts in (group chat or DMs). No privacy-mode changes needed. The bot
-only ever reacts to slash commands, which Telegram delivers to bots regardless of privacy
-mode, so leave privacy mode on (the default) and it'll never see ordinary chat messages.
-
-Each chat registers itself the first time you send it any command (e.g. `/start`) — no
-need to look up or configure a chat ID anywhere.
-
-### 3. Configure secrets
+### 2. Configure secrets
 
 ```sh
 cp .env.example .env
@@ -117,55 +146,21 @@ defaults used the moment a new chat registers itself (see
 Run `uv run python -m scripts.check_env` any time to confirm which required variables
 are set, without ever printing their actual values.
 
-### 4. Set the default region
+### 3. Set the default region
 
 ```sh
 uv run python -m scripts.setup_region
 ```
 
-### 5. Run it
+### 4. Run it
 
 ```sh
 uv run python -m scripts.poll_commands     # registers chats, handles commands
 uv run python -m scripts.telegram_alerts   # sends that day's alerts
 ```
 
-## Telegram commands
-
-Sent as a message in any chat the bot is in:
-
-  | Message | Purpose |
-| --- | --- |
-| `/start` | Registers the chat (if new) and replies with this command list. |
-| `/setregion C` | Switch this chat to a different DNO region. |
-| `/setthreshold 25` | Prices at or below 25p/kWh count as "ok"; above that, "spike". |
-| `/setmode all/alerts/both/off` | Which daily messages this chat receives: every slot, only plunge/spike alerts, both, or nothing. |
-| `/today` | Send today's remaining slots right now. |
-| `/tomorrow` | Send tomorrow's slots right now, or a "not published yet" reply if Octopus hasn't published them (before ~4pm UK). |
-
-`/setregion`, `/setthreshold` and `/setmode` take effect within a few minutes (on GitHub Actions, the
-command-polling job runs on a `*/5 * * * *` schedule). `/today` and `/tomorrow` reply on that same poll.
-
 ## Running tests
 
 ```sh
 uv run python -m pytest
 ```
-
-## Deployment
-
-Two scheduled GitHub Actions workflows (see `.github/workflows/`):
-
-- `daily-rundown.yml` 
-  Once a day (`30 16 * * *`), sends every registered chat its
-  configured alerts. Read-only against state, so it only needs the default
-  (read-only) `GITHUB_TOKEN` permissions.
-- `poll-commands.yml`
-  Every five minutes, handles all commands and registers new
-  chats. The only workflow that writes `state_telegram.json`, committing and pushing it
-  to the separate state repo using the `STATE_REPO_TOKEN` secret (see
-  [State repo](#state-repo) above).
-
-Note GitHub disables scheduled workflows in a repo after 60 days with no commits (not
-runs). If notifications silently stop, check whether they've been auto-disabled in the
-Actions tab.
