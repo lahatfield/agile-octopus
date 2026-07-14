@@ -27,20 +27,20 @@ waiting for the next scheduled daily run.
 2. Add the bot to any Telegram chats you want alerts in (group chat or DMs). The bot only
    ever reacts to slash commands, which Telegram delivers to bots regardless of privacy
    mode, so leave privacy mode on (the default) and it'll never see ordinary chat messages.
-   This repository uses the bot token as a secret to communicate with the Telegram API.
 
-3. Register your Telegram chat by sending `/start` (or any other valid command, see below).
+3. Make your own copy of this repository and upload it to GitHub. 
 
-4. Make your own copy of this repository and upload it to GitHub. 
+4. Create another empty and private GitHub repository and obtain a PAT (Personal Access Token) with 
+   read and write permissions. Give it a first commit (e.g. tick "Add a README" on creation)
+   so GitHub Actions has something to check out.
 
-5. Create another empty and private GitHub repository and obtain a PAT (Personal Access Token) with 
-   read and write permissions.
+5. Under Settings → Secrets and variables → Actions, create two repository secrets:
 
-6. Under Settings/Secrets and variables/Actions, create two repository secrets:
+   - `STATE_REPO_TOKEN`: The PAT for the empty repository you just created.
+   - `TELEGRAM_BOT_TOKEN`: The bot token for your Telegram bot, used as a secret to
+     communicate with the Telegram API.
 
-   STATE_REPO_TOKEN: The PAT for the empty repository you just created.
-   
-   TELEGRAM_BOT_TOKEN: The bot token for your Telegram bot.
+6. Register your Telegram chat by sending `/start` (or any other valid command, see below).
 
 There are two scheduled GitHub Actions workflows (see `.github/workflows/`):
 
@@ -51,8 +51,7 @@ There are two scheduled GitHub Actions workflows (see `.github/workflows/`):
 - `poll-commands.yml`
   Every five minutes, handles all commands and registers new
   chats. The only workflow that writes `state_telegram.json`, committing and pushing it
-  to the separate state repo using the `STATE_REPO_TOKEN` secret (see
-  [State repo](#state-repo) above).
+  to the separate state repo using the `STATE_REPO_TOKEN` secret.
 
 Note GitHub disables scheduled workflows in a repo after 60 days with no commits (not
 runs). If notifications silently stop, check whether they've been auto-disabled in the
@@ -101,20 +100,16 @@ as a regular dependency (see `pyproject.toml`).
   plus a single cursor tracking which Telegram messages have already been processed
   (Telegram's `getUpdates` cursor is bot-wide, not per-chat). Since it contains chat IDs,
   it's tracked in a separate private repo rather than this one - see
-  [State repo](#state-repo) below. Locally it defaults to `state/state_telegram.json` in
-  this repo (gitignored) unless `TELEGRAM_STATE_DIR` is set.
+  [For Users](#for-users-running-on-github-actions) above. Locally it defaults to
+  `state/state_telegram.json` in this repo (gitignored) unless `TELEGRAM_STATE_DIR` is set.
 
   Example json:
   ```json
   {
-  "offset": 184767730,
-  "chats": {
-    "-5360807425": {
-      "region": "P",
-      "threshold": 26.1,
-      "mode": "all"
+    "offset": 384437557,
+    "chats": {
+      "<chat_id>": {"region": "P", "threshold": 30.0, "mode": "both"}
     }
-  }
   }
   ```
   Only `scripts/poll_commands.py` ever writes this file. This project is intended for a
