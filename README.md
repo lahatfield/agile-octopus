@@ -19,16 +19,31 @@ A separate job polls Telegram every few minutes for commands, so config changes 
 on-demand requests (`/today`, `/tomorrow`) take effect within a few minutes rather than
 waiting for the next scheduled daily run.
 
-## For Users: Running on GitHub Actions
+## Easy Setup: Just the Notifications
+
+If all you want is to get the Agile Octopus notifications, you can use my existing bot with
+no GitHub setup required. Please bear in mind: this will cause your Telegram chat IDs to 
+appear in a private repository that I manage (a chat ID is not senstive information, but 
+keep it in mind).
+
+1. Add @MunroOctoBot to any Telegram chats you want alerts in (group chat or DMs). The bot only
+   ever reacts to slash commands, which Telegram delivers to bots regardless of privacy
+   mode, so leave privacy mode on (the default) and it will never see ordinary chat messages.
+
+2. Register your Telegram chat by sending `/start` (or any other valid command, see below). The 
+   bot will send a message within a few minutes with the user commands to get and customise
+   your Agile Octopus updates.
+
+## Running on Github Actions with Your Own Bot
 
 1. Create your own Telegram bot via [@BotFather](https://t.me/BotFather): `/newbot`. No
    privacy-mode changes needed.
 
 2. Add the bot to any Telegram chats you want alerts in (group chat or DMs). The bot only
    ever reacts to slash commands, which Telegram delivers to bots regardless of privacy
-   mode, so leave privacy mode on (the default) and it'll never see ordinary chat messages.
+   mode, so leave privacy mode on (the default) and it will never see ordinary chat messages.
 
-3. Make your own copy of this repository and upload it to GitHub. 
+3. Fork this repository to make an exact copy for yourself.
 
 4. Create another empty and private GitHub repository and obtain a PAT (Personal Access Token) with 
    read and write permissions. Give it a first commit (e.g. tick "Add a README" on creation)
